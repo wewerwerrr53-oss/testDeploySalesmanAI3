@@ -1,0 +1,46 @@
+# Этап сборки
+FROM python:3.10-slim as builder
+
+# Установка необходимых системных библиотек
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    curl \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Создаем виртуальное окружение
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Рабочая директория
+WORKDIR /app
+
+# Копируем requirements
+COPY requirements.txt .
+
+# Установка Python-зависимостей
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Финальный этап
+FROM python:3.10-slim
+
+# Копируем виртуальное окружение из builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Рабочая директория
+WORKDIR /app
+
+# Копируем все необходимые файлы
+COPY qwenChatWeb.py .
+COPY qwenGmail.py .
+COPY chroma_db .
+COPY templates .
+COPY .env .
+COPY railway.yml .
+COPY vector_serch.py .
+COPY requirements.txt .
+COPY qwenparser.py .
+
+# Команда запуска
+CMD ["python", "qwenChatWeb.py"]

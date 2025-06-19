@@ -1,0 +1,16 @@
+gradio_client==0.7.0
+python-telegram-bot==21.4
+python-dotenv==0.19.0
+chromadb==0.4.22
+sentence-transformers==2.5.1
+huggingface_hub==0.23.0
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.1.0+cpu
+torchvision==0.16.0+cpu
+torchaudio==2.1.0+cpu
+numpy==1.24.3
+flask==2.0.1
+Werkzeug==2.0.3
+flask_cors
+openai==1.12.0
