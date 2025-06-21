@@ -36,7 +36,7 @@ COPY qwenChatWeb.py .
 COPY qwenGmail.py .
 COPY chroma_db .
 COPY templates .
-COPY .env .
+
 COPY railway.yml .
 COPY vector_serch.py .
 COPY requirements.txt .
