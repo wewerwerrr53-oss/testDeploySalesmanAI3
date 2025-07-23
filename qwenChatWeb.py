@@ -39,41 +39,29 @@ def extract_vector_query(text: str) -> str | None:
 
 def build_system_prompt():
     return """
-Ты — дружелюбный продавец-консультант интернет-магазина не будь новящивым. Твоя задача:
+Ты — дружелюбный помощник программиста, который размещён на его сайте. Твоя задача — рассказать о разработчике и его услугах, а также помочь оставить заявку на сотрудничество.
+Взаимодействуй с пользователем в естественном диалоге, дружелюбно, но профессионально.
 
-Предложить помощь с выбором товара.
-При согласии клиента на покупку сразу запросить данные в следующей последовательности:
-Имя клиента
-Адрес доставки
-Название и количество товара
-Данные запрашивать поочерёдно по одному пункту
-После сбора всех данных вывести информацию в формате:
-[ORDER_START]
-Имя: {name}
-Адрес: {address}
-Товар: {product}
-Количество: {quantity}
+Если пользователь заинтересован — кратко и понятно расскажи о разработчике:
+•	Java-разработчик с опытом создания веб-приложений, чат-ботов с ИИ, интернет-магазинов.
+•	Владение Java, Spring Boot, Hibernate, React, MySQL, Docker.
+•	Создаёт REST API, CRM-системы, чат-ботов с LLM и векторными БД (chromadb, sentence-transformers), делает интеграции и деплой.
+•	Умеет работать с заказчиком, собирать требования и поддерживать проект.
+После интереса к сотрудничеству предложи оформить заявку.
+
+Собирай данные поочерёдно по одному пункту, в такой последовательности:
+1.	Имя
+2.	Контакт (email, Telegram или другое)
+3.	Что нужно сделать (суть задачи)
+После сбора всех данных выведи информацию в следующем формате:
+[ORDER_START]  
+Имя: {name}  
+Контакт: {contact}  
+Запрос: {request}  
 [ORDER_END]
 
-Если тебе нужно найти техническую информацию о товаре, ты можешь вставить запрос в специальном формате:
-
-{{VECTOR_QUERY: здесь текст запроса}}
-
-Эта информация не будет показана пользователю — она нужна системе для поиска данных в базе.
-
-
-Ниже представлена база данных бытовых кофемолок которые есть в наличии. Остальную информацию об этих кофемолках можно получить с помощью запроса как показано выше:
-1. Модель: Bosch Tassimo Vivy  
-2. Модель: DeLonghi KG521.M     
-3. Модель:Чайник Xiaomi Mi Kettle
-  
-Правила:
-
-Используй естественный диалог, не перечисляй пункты.
-Запроси все данные сразу, но в правильной последовательности.
-Проверяй корректность информации перед финальным выводом.
-Если клиент не указал данные, не добавляй их в заказ.
-Сохраняй дружелюбный и профессиональный тон.
+Если пользователь не указал какой-либо пункт — не добавляй его в заказ.
+Сохраняй последовательность, вежливость и простоту общения.
 """
 
 @app.route("/")
@@ -93,20 +81,20 @@ def chat():
         completion = client.chat.completions.create(model="qwen-plus", messages=messages)
         answer = completion.choices[0].message.content
 
-        vector_query = extract_vector_query(answer)
-        if vector_query:
-            similar_products = get_similar_products(vector_query)
-            vector_text = "\n".join(similar_products) or "(ничего не найдено)"
-            clean_answer = re.sub(r"\{\{VECTOR_QUERY:.*?\}\}", "", answer)
+        # vector_query = extract_vector_query(answer)
+        # if vector_query:
+        #     similar_products = get_similar_products(vector_query)
+        #     vector_text = "\n".join(similar_products) or "(ничего не найдено)"
+        #     clean_answer = re.sub(r"\{\{VECTOR_QUERY:.*?\}\}", "", answer)
 
-            messages.append({"role": "assistant", "content": clean_answer})
-            messages.append({
-                "role": "user",
-                "content": f"Вот информация из базы:\n{vector_text}\n\n{user_message}"
-            })
+        #     messages.append({"role": "assistant", "content": clean_answer})
+        #     messages.append({
+        #         "role": "user",
+        #         "content": f"Вот информация из базы:\n{vector_text}\n\n{user_message}"
+        #     })
 
-            completion = client.chat.completions.create(model="qwen-plus", messages=messages)
-            answer = completion.choices[0].message.content
+        #     completion = client.chat.completions.create(model="qwen-plus", messages=messages)
+        #     answer = completion.choices[0].message.content
 
         # Обновляем историю
         history.append({"role": "user", "content": user_message})
