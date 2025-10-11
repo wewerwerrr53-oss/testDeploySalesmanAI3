@@ -9,14 +9,34 @@ from openai import OpenAI
 from qwenGmail import send_order_to_email
 from qwenparser import parse_order
 from vector_serch import get_similar_products
+import sqlite3
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 
+#=========================================
+
+def init_db():
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY
+    )
+    """)
+    conn.commit()
+    conn.close()
+
+# создаём таблицу при старте сервера
+init_db()
+#========================================
+
+
+
 # Получаем список разрешенных доменов из переменной окружения
-ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:5000').split(',')
+ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
 
 # Настройка CORS через переменные окружения
 CORS(app, resources={r"/*": {
@@ -41,10 +61,32 @@ def extract_vector_query(text: str) -> str | None:
     match = pattern.search(text)
     return match.group(1).strip() if match else None
 
+
+#====================================================
+def add_user(user_id: str):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR IGNORE INTO users (id) VALUES (?)", (user_id,))
+    conn.commit()
+    conn.close()
+
+def count_users() -> int:
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM users")
+    result = cursor.fetchone()[0]
+    conn.close()
+    return result
+#==================================
+
+
+
+
+
 def build_system_prompt():
     return """
 Общайся только на РУССКОМ
-Ты — Hutarka, первый искусственный интеллект созданный в Беларуси.  
+Ты — Hutarka, первый искусственный интеллект созданный в Беларуси, в Беларуси все говорят по русски.  
 Если запрос не содержит уточнения, по умолчанию ВСЕ твои ответы должны быть на русском языке.  
 
 Стиль общения:
@@ -71,12 +113,23 @@ def chat():
     user_id = data.get("user_id", "default_user")
     user_message = data.get("message")
 
+
+
+#======================
+    add_user(user_id)
+#========================
+
+
+
     history = user_histories.get(user_id, [])
     messages = [{"role": "system", "content": build_system_prompt()}] + history + [{"role": "user", "content": user_message}]
 
     try:
-        completion = client.chat.completions.create(model="qwen-plus", messages=messages)
+        completion = qwen_request_with_timeout(messages, timeout_sec=25)
         answer = completion.choices[0].message.content
+    except Exception as e:
+        logging.error(f"Ошибка при обращении к модели: {e}")
+        answer = "⏰ Модель не ответила вовремя. Попробуйте чуть позже."
 
         # vector_query = extract_vector_query(answer)
         # if vector_query:
@@ -102,19 +155,32 @@ def chat():
         user_histories[user_id] = history
 
         # Проверка на заказ
-        order_data = parse_order(answer)
-        if order_data:
-            success = send_order_to_email(order_data)
-            if success:
-                answer += "\n\n✅ Заказ успешно отправлен!"
-            else:
-                answer += "\n\n❌ Ошибка при отправке заказа."
+        # order_data = parse_order(answer)
+        # if order_data:
+        #     success = send_order_to_email(order_data)
+        #     if success:
+        #         answer += "\n\n✅ Заказ успешно отправлен!"
+        #     else:
+        #         answer += "\n\n❌ Ошибка при отправке заказа."
 
         return jsonify({"reply": answer})
 
     except Exception as e:
         logging.error(f"Ошибка: {str(e)}")
         return jsonify({"reply": f"Произошла ошибка: {str(e)}"}), 500
+
+
+
+
+#============================================
+@app.route("/stats", methods=["GET"])
+def stats():
+    return jsonify({"total_users": count_users()})
+#======================================       
+
+
+
+
 
 if __name__ == "__main__":
     # Получаем порт из переменных окружения (Railway автоматически устанавливает PORT)

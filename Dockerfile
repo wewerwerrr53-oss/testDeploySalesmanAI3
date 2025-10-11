@@ -32,7 +32,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 WORKDIR /app
 
 # Копируем все необходимые файлы
-COPY qwenChatWeb.py .
+COPY qwenChatBdGaven.py .
 COPY qwenGmail.py .
 COPY chroma_db .
 COPY templates .
@@ -43,4 +43,5 @@ COPY requirements.txt .
 COPY qwenparser.py .
 
 # Команда запуска
-CMD ["python", "qwenChatWeb.py"]
+CMD ["gunicorn", "qwenChatWeb:app", "-w", "1", "-k", "gevent", "--worker-connections", "100", "--timeout", "60", "-b", "0.0.0.0:5000"]
+#CMD ["python", "qwenChatWeb.py"]
