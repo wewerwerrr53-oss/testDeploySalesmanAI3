@@ -20,3 +20,4 @@ gunicorn
 gevent
 flask-compress
 requests
+PyJWT

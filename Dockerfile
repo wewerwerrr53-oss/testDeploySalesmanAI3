@@ -43,5 +43,5 @@ COPY requirements.txt .
 COPY qwenparser.py .
 
 # Команда запуска
-CMD ["gunicorn", "qwenChatWeb:app", "-w", "1", "-k", "gevent", "--worker-connections", "100", "--timeout", "60", "-b", "0.0.0.0:5000"]
+CMD ["gunicorn", "qwenChatBdGaven:app", "-w", "1", "-k", "gevent", "--worker-connections", "100", "--timeout", "60", "-b", "0.0.0.0:5000"]
 #CMD ["python", "qwenChatWeb.py"]
