@@ -15,6 +15,10 @@ import sqlite3
 import logging
 from flask_compress import Compress
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+import requests
+
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -24,7 +28,8 @@ logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 Compress(app)
 
-# Секретный ключ для JWT (обязательно задай в .env!)
+# Секретный ключ для JWT 
+RECAPTCHA_SECRET_KEY = os.getenv("RECAPTCHA_SECRET_KEY")
 JWT_SECRET = os.getenv("JWT_SECRET", "your-super-secret-jwt-key-change-in-production")
 
 # =========================================
@@ -62,6 +67,26 @@ client = OpenAI(api_key=QWEN_API_KEY, base_url=BASE_URL)
 
 # =========================================
 # Вспомогательные функции
+
+
+# Инициализация лимитера
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,  # лимит по IP
+    default_limits=[]  # не ставим глобальный лимит
+)
+
+
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return jsonify({
+        "error": "Слишком много запросов",
+        "message": "Подождите немного."
+    }), 429
+
+
+
 def get_or_create_user(user_id: str):
     """Создаёт пользователя, если его нет"""
     conn = sqlite3.connect("users.db")
@@ -126,6 +151,7 @@ def index():
     return render_template("index.html")
 
 @app.route("/auth/init", methods=["POST"])
+@limiter.limit("5 per minute")
 def auth_init():
     """Инициализация аутентификации: выдача или обновление токена"""
     auth = request.headers.get("Authorization")
@@ -160,11 +186,52 @@ def qwen_request_with_timeout(messages, timeout_sec=35):
         try:
             return future.result(timeout=timeout_sec)
         except TimeoutError:
-            raise Exception(f"⏰ Модель не ответила за {timeout_sec} секунд.")
+            raise Exception(f" Модель не ответила за {timeout_sec} секунд.")
 
 
 @app.route("/chat", methods=["POST"])
+@limiter.limit("10 per minute")
 def chat():
+
+#================================================================
+ # 🔒 1. reCAPTCHA проверка (самое первое!)
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "JSON body is required"}), 400
+
+    recaptcha_token = data.get("recaptcha_token")
+    if not recaptcha_token:
+        return jsonify({"error": "reCAPTCHA token is required"}), 400
+
+    # Отправляем токен в Google
+    try:
+        recaptcha_response = requests.post(
+            "https://www.google.com/recaptcha/api/siteverify",
+            data={
+                "secret": RECAPTCHA_SECRET_KEY,
+                "response": recaptcha_token
+            },
+            timeout=5
+        )
+        recaptcha_result = recaptcha_response.json()
+    except Exception as e:
+        logging.error(f"reCAPTCHA verification failed: {e}")
+        return jsonify({"error": "reCAPTCHA service unavailable"}), 500
+
+    if not recaptcha_result.get("success"):
+        # Опционально: логировать причину
+        error_codes = recaptcha_result.get("error-codes", [])
+        logging.warning(f"reCAPTCHA failed for request: {error_codes}")
+        return jsonify({"error": "reCAPTCHA verification failed"}), 400
+
+    # Опционально: проверка score (только для v3)
+    score = recaptcha_result.get("score", 1.0)
+    if score < 0.5:
+        logging.warning(f"Low reCAPTCHA score: {score}")
+        return jsonify({"error": "Suspicious activity detected"}), 403
+
+#===============================================================
+
     auth = request.headers.get("Authorization")
     if not auth or not auth.startswith("Bearer "):
         return jsonify({"error": "Missing or invalid token"}), 401
@@ -193,7 +260,7 @@ def chat():
         answer = completion.choices[0].message.content
     except Exception as e:
         logging.error(f"Ошибка при обращении к модели: {e}")
-        answer = "⏰ Модель не ответила вовремя. Попробуйте чуть позже."
+        answer = " Модель не ответила вовремя. Попробуйте чуть позже."
 
     history.extend([
         {"role": "user", "content": user_message},

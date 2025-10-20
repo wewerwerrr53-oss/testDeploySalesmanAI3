@@ -21,3 +21,4 @@ gevent
 flask-compress
 requests
 PyJWT
+flask-limiter==3.8.0
