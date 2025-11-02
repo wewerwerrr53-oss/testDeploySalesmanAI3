@@ -31,16 +31,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Рабочая директория
 WORKDIR /app
 
-# Копируем все необходимые файлы
-COPY qwenChatBdGaven.py .
-COPY qwenGmail.py .
-COPY chroma_db .
-COPY templates .
-
-COPY railway.yml .
-COPY vector_serch.py .
-COPY requirements.txt .
-COPY qwenparser.py .
+# Копируем всё приложение
+COPY . .
 
 # Команда запуска
 CMD ["gunicorn", "app:app", "-w", "2", "-k", "gevent", "--worker-connections", "1000", "--timeout", "60", "-b", "0.0.0.0:5000"]
