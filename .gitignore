@@ -2,3 +2,10 @@
 __pycache__/
 *.log
 forTest.py
+.gitignore
+.vscode/
+chromVectorBD.py
+railway.yml
+vector_serch.py
+templates/
+chroma_db/
