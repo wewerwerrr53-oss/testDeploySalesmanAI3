@@ -16,8 +16,16 @@ def create_app():
     init_db()
 
     # CORS
-    allowed = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
-    CORS(app, resources={r"/*": {"origins": allowed}})
+    # allowed = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+    # CORS(app, resources={r"/*": {"origins": allowed}})
+
+
+
+    CORS(app, resources={r"/*": {
+    "origins": ALLOWED_ORIGINS,
+    "methods": ["GET", "POST"],
+    "allow_headers": ["Content-Type"]
+}})
 
     # Logging
     logging.basicConfig(level=logging.INFO)
