@@ -19,13 +19,14 @@ def create_app():
     # allowed = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
     # CORS(app, resources={r"/*": {"origins": allowed}})
 
-ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
 
-CORS(app, resources={r"/*": {
-    "origins": ALLOWED_ORIGINS,
-    "methods": ["GET", "POST"],
-    "allow_headers": ["Content-Type"]
-}})
+    ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
+
+    CORS(app, resources={r"/*": {
+        "origins": ALLOWED_ORIGINS,
+        "methods": ["GET", "POST"],
+        "allow_headers": ["Content-Type"]
+    }})
 
     # Logging
     logging.basicConfig(level=logging.INFO)
